@@ -1,41 +1,46 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const passport = require("passport");
+const MongoStore = require("connect-mongo");
+const session = require("express-session");
+const path = require("path");
+require("dotenv").config();
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+// Use passport config
+const initialize = require("./config/passportConfig");
+initialize(passport);
 
-var app = express();
+const homeRouter = require("./routes/api/homeRouter");
+const boardRouter = require("./routes/api/boardRouter");
+const listRouter = require("./routes/api/listRouter");
+const cardRouter = require("./routes/api/cardRouter");
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
+const app = express();
 
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+const port = 5000;
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
+app.use(helmet());
+
+
+app.use("/api/auth", homeRouter);
+app.use("/api", boardRouter);
+app.use("/api", listRouter);
+app.use("/api", cardRouter);
+app.use("/api", sendEmailRouter);
+
+app.set("trust proxy", 1); // trust first proxy
+
+app.use(express.static(path.join(__dirname, "./client/build")));
+
+// Handle React routing, return all requests to React app
+app.get("*", function (req, res) {
+  res.sendFile(path.join(__dirname, "./client/build", "index.html"));
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+app.listen(port, () => {
+  // Get db connection
+  require("./config/mongoConfig");
+  console.log(`Server is running on port: ${port}`);
 });
-
-module.exports = app;

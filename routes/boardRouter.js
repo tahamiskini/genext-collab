@@ -1,15 +1,23 @@
 const router = require("express").Router();
+const boardController = require("../../controllers/boardController");
+const auth = require("../../middleware/auth");
 
-const boardController = require("../controllers/boardController");
+router.get("/b/:id", auth.checkAuthenticated, boardController.board_get);
 
-router.get("/b/:id", boardController.board_get);
+router.get(
+  "/:userId/boards",
+  auth.checkAuthenticated,
+  boardController.get_user_boards
+);
 
-router.get("/:userId/boards", boardController.get_user_boards);
+router.post("/b/", auth.checkAuthenticated, boardController.create_board_post);
 
-router.post("/b/", boardController.create_board_post);
+router.patch(
+  "/b/:id/",
+  auth.checkAuthenticated,
+  boardController.update_board_patch
+);
 
-router.patch("/b/:id/", boardController.update_board_patch);
-
-router.delete("/b/:id/", boardController.board_delete);
+router.delete("/b/:id/", auth.checkAuthenticated, boardController.board_delete);
 
 module.exports = router;
