@@ -20,4 +20,20 @@ router.patch(
 
 router.delete("/b/:id/", auth.checkAuthenticated, boardController.board_delete);
 
+// collaborators routes
+
+router.post(
+  "/b/:boardId/collaborators",
+  boardController.inviteCollaborators,
+  auth.checkAuthenticated
+);
+
+router.delete(
+  "/b/:id/collaborators/:userId",
+  boardController.removeCollaborator,
+  auth.checkAuthenticated
+);
+
+module.exports = router;
+
 module.exports = router;
