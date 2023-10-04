@@ -12,7 +12,14 @@ const { ObjectId } = mongoose.Types;
 // get all user's boards
 
 exports.get_user_boards = async (req, res) => {
-  res.send("get all user's boards ");
+  try {
+    const userId = Types.ObjectId(req.user.id);
+    const boards = await Board.find({ creatorId: userId });
+
+    res.send(boards);
+  } catch (error) {
+    res.sendStatus(404);
+  }
 };
 
 // get selected board lists , cards and subtasks on GET
@@ -21,18 +28,87 @@ exports.board_get = async (req, res) => {
 };
 
 // Create board on POST
-exports.create_board_post = async (req, res) => {
-  res.send("Create board on POST");
-};
+exports.create_board_post = [
+  // Validate form fields
+  body("boardTitle", "Title must not be empty.").isLength({ min: 1, max: 64 }),
+
+  async (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.send({ error: errors.array({ onlyFirstError: true })[0].msg });
+    }
+
+    // Save new board to db
+    try {
+      const board = await Board.create({
+        creatorId: req.user.id,
+        boardTitle: req.body.boardTitle,
+      });
+
+      res.send(board);
+    } catch (error) {
+      res.send({ errorMsg: error });
+    }
+  },
+];
 
 // Handle board delete on DELETE
 exports.board_delete = async (req, res) => {
-  res.send("Handle board delete on DELETE");
+  try {
+    const boardId = req.params.id;
+
+    const deletedBoard = await Board.findOneAndDelete({
+      _id: boardId,
+      creatorId: req.user.id,
+    });
+
+    if (!deletedBoard) {
+      return res.sendStatus(404);
+    }
+
+    await List.deleteMany({ boardId });
+    await Card.deleteMany({ boardId });
+    await Subtask.deleteMany({ boardId });
+
+    res.sendStatus(200);
+  } catch (error) {
+    res.sendStatus(400);
+  }
 };
 
-//Handle board update on PATCH
-exports.update_board_patch = async (req, res) => {
-  res.send("handle board delete on delete");
-};
+// Handle board upadate on PATCH
+exports.update_board_patch = [
+  // Validate form fields
+  body("boardTitle", "Title must not be empty.").isLength({ min: 1, max: 64 }),
 
+  async (req, res) => {
+    const errors = validationResult(req);
 
+    if (!errors.isEmpty()) {
+      return res.send({ error: errors.array({ onlyFirstError: true })[0].msg });
+    }
+
+    // Save updated board to db
+    try {
+      const boardId = req.params.id;
+      const updatedBoard = await Board.findOneAndUpdate(
+        { _id: boardId, creatorId: req.user.id },
+        {
+          boardTitle: req.body.boardTitle,
+        },
+        {
+          new: true,
+        }
+      );
+
+      if (!updatedBoard) {
+        return res.sendStatus(404);
+      }
+
+      res.send(updatedBoard);
+    } catch (error) {
+      res.send({ errorMsg: error });
+    }
+  },
+];
