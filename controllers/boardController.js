@@ -9,13 +9,18 @@ const { body, validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Types;
 
-// get all user's boards
-
 exports.get_user_boards = async (req, res) => {
   try {
     const userId = Types.ObjectId(req.user.id);
-    const boards = await Board.find({ creatorId: userId });
-
+    const boards = await Board.find({
+      $or: [
+        { creatorId: userId }, // Find boards where the user is the creator
+        { "collaborators.userId": userId }, // Find boards where the user is a collaborator
+      ],
+    });
+    // const { userId } = req.params;
+    // const user = await User.find({ _id: userId });
+    // const boards = user.boards;
     res.send(boards);
   } catch (error) {
     res.sendStatus(404);
@@ -24,7 +29,7 @@ exports.get_user_boards = async (req, res) => {
 
 // get selected board lists , cards and subtasks on GET
 exports.board_get = async (req, res) => {
-  res.send("get selected board lists , cards and subtasks on GET ");
+  
 };
 
 // Create board on POST
@@ -112,3 +117,55 @@ exports.update_board_patch = [
     }
   },
 ];
+
+exports.inviteCollaborators = async (req, res) => {
+  try {
+    // add the actual board to the user boards with email sent in the form
+    const boardId = Types.ObjectId(req.params.boardId);
+    const userId = req.body.userId;
+    console.log(boardId);
+    const board = await Board.findById(boardId);
+    //console.log(board);
+    if (!board) {
+      return res.status(404).json({ error: "Board not found" });
+    }
+    console.log(board);
+
+    // get invited user boards :
+    const invited_user_boards = await Board.find({
+      creatorId: userId,
+    }).populate("collaborators.userId");
+
+    // check if the board already exists in the invited user boards :
+    const existingBoard = invited_user_boards.find(
+      (_board) => _board._id === boardId
+    );
+    if (existingBoard)
+      return res.status(400).json({ error: "user is already a colaborator!" });
+    invited_user_boards.push(board);
+    board.collaborators.push({ _id: userId });
+    await board.save();
+    for (const invitedBoard of invited_user_boards) {
+      await invitedBoard.save();
+    }
+    res.status(201).json(invited_user_boards);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+    console.error(error);
+  }
+};
+
+//remove collaborators from the board
+exports.removeCollaborator = async (req, res) => {
+  try {
+    const { boardId, collaboratorId } = req.params;
+    const board = await Board.findById(boardId);
+    board.collaborators = board.filter(
+      (collaborator) => collaborator.userId.toString() !== collaboratorId
+    );
+    await board.save();
+    res.sendStatus(200);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
