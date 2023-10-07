@@ -32,37 +32,75 @@ exports.board_get = async (req, res) => {
   try {
     const boardId = Types.ObjectId(req.params.id);
 
-    // fetch the board
-    const board = await Board.findOne({ _id: boardId, creatorId: req.user.id });
+    const board = await Board.aggregate([
+      {
+        $match: { _id: boardId, creatorId: req.user.id },
+      },
+      {
+        $lookup: {
+          from: "lists",
+          localField: "id",
+          foreignField: "boardId",
+          as: "lists",
+        },
+      },
+      {
+        $lookup: {
+          from: "cards",
+          let: { boardId: "$id" },
+          pipeline: [
+            {
+              $lookup: {
+                from: "subtasks",
+                pipeline: [
+                  {
+                    $match: { $expr: { $eq: ["$cardId", "$$cardId"] } },
+                  },
+                ],
+                as: "subtasks",
+              },
+            },
+          ],
+          as: "cards",
+        },
+      },
+    ]);
 
-    if (!board) {
+    if (!board.length) {
       return res.sendStatus(404);
     }
 
-    // fetch the lists associated with the board
-    const lists = await List.find({ boardId: board._id });
-
-    // fetch the cards and subtasks associated with each list
-    const cards = [];
-    for (const list of lists) {
-      const listCards = await Card.find({ listId: list._id });
-      const cardsWithSubtasks = [];
-
-      for (const card of listCards) {
-        const subtasks = await Subtask.find({ cardId: card._id });
-        cardsWithSubtasks.push({ ...card.toObject(), subtasks });
-      }
-
-      cards.push(...cardsWithSubtasks);
-    }
-
-    // Combine the results and send the response
-    const result = { ...board.toObject(), lists, cards };
-    res.send(result);
+    res.send(...board);
   } catch (error) {
-    res.sendStatus(500); // Handle errors appropriately
+    res.sendStatus(404);
   }
 };
+
+// Create board on POST
+exports.create_board_post = [
+  // Validate form fields
+  body("boardTitle", "Title must not be empty.").isLength({ min: 1, max: 64 }),
+
+  async (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.send({ error: errors.array({ onlyFirstError: true })[0].msg });
+    }
+
+    // Save new board to db
+    try {
+      const board = await Board.create({
+        creatorId: req.user.id,
+        boardTitle: req.body.boardTitle,
+      });
+
+      res.send(board);
+    } catch (error) {
+      res.send({ errorMsg: error });
+    }
+  },
+];
 
 // Create board on POST
 exports.create_board_post = [
