@@ -29,7 +29,39 @@ exports.get_user_boards = async (req, res) => {
 
 // get selected board lists , cards and subtasks on GET
 exports.board_get = async (req, res) => {
-  
+  try {
+    const boardId = Types.ObjectId(req.params.id);
+
+    // fetch the board
+    const board = await Board.findOne({ _id: boardId, creatorId: req.user.id });
+
+    if (!board) {
+      return res.sendStatus(404);
+    }
+
+    // fetch the lists associated with the board
+    const lists = await List.find({ boardId: board._id });
+
+    // fetch the cards and subtasks associated with each list
+    const cards = [];
+    for (const list of lists) {
+      const listCards = await Card.find({ listId: list._id });
+      const cardsWithSubtasks = [];
+
+      for (const card of listCards) {
+        const subtasks = await Subtask.find({ cardId: card._id });
+        cardsWithSubtasks.push({ ...card.toObject(), subtasks });
+      }
+
+      cards.push(...cardsWithSubtasks);
+    }
+
+    // Combine the results and send the response
+    const result = { ...board.toObject(), lists, cards };
+    res.send(result);
+  } catch (error) {
+    res.sendStatus(500); // Handle errors appropriately
+  }
 };
 
 // Create board on POST
@@ -120,7 +152,6 @@ exports.update_board_patch = [
 
 exports.inviteCollaborators = async (req, res) => {
   try {
-    // add the actual board to the user boards with email sent in the form
     const boardId = Types.ObjectId(req.params.boardId);
     const userId = req.body.userId;
     console.log(boardId);
