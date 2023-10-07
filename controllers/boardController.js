@@ -39,7 +39,7 @@ exports.board_get = async (req, res) => {
       {
         $lookup: {
           from: "lists",
-          localField: "id",
+          localField: "_id",
           foreignField: "boardId",
           as: "lists",
         },
@@ -47,11 +47,13 @@ exports.board_get = async (req, res) => {
       {
         $lookup: {
           from: "cards",
-          let: { boardId: "$id" },
+          let: { boardId: "$_id" },
           pipeline: [
+            { $match: { $expr: { $eq: ["$boardId", "$$boardId"] } } },
             {
               $lookup: {
                 from: "subtasks",
+                let: { cardId: "$_id" },
                 pipeline: [
                   {
                     $match: { $expr: { $eq: ["$cardId", "$$cardId"] } },
@@ -75,6 +77,32 @@ exports.board_get = async (req, res) => {
     res.sendStatus(404);
   }
 };
+
+// Create board on POST
+exports.create_board_post = [
+  // Validate form fields
+  body("boardTitle", "Title must not be empty.").isLength({ min: 1, max: 64 }),
+
+  async (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.send({ error: errors.array({ onlyFirstError: true })[0].msg });
+    }
+
+    // Save new board to db
+    try {
+      const board = await Board.create({
+        creatorId: req.user.id,
+        boardTitle: req.body.boardTitle,
+      });
+
+      res.send(board);
+    } catch (error) {
+      res.send({ errorMsg: error });
+    }
+  },
+];
 
 // Create board on POST
 exports.create_board_post = [
