@@ -1,6 +1,8 @@
 const List = require("../models/list");
 const Card = require("../models/card");
 const { body, validationResult } = require("express-validator");
+const isTooClose = require("../utils/isTooClose");
+const recalcItemsPos = require("../utils/recalcItemsPos");
 
 // Handle get list on GET
 exports.list_get = async (req, res) => {
@@ -69,6 +71,14 @@ exports.update_list_put = [
           new: true,
         }
       );
+
+      // Sets new positions if the new pos of the list is too close to neighbouring lists
+      if (isTooClose(newPos)) {
+        const boardId = req.body.boardId;
+        await recalcItemsPos({ boardId: boardId }, List);
+
+        return;
+      }
 
       res.send(updatedList);
     } catch (error) {

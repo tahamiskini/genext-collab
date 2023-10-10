@@ -1,5 +1,7 @@
 const SubTask = require("../models/subtask");
 const { body, validationResult } = require("express-validator");
+const recalcItemsPos = require("../utils/recalcItemsPos");
+const isTooClose = require("../utils/isTooClose");
 
 exports.create_subtask_post = [
   body("taskName", "Subtask name must not be empty.").isLength({
