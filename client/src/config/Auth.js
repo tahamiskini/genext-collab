@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import api from "./axiosConfig";
+import React, { useEffect, useState } from 'react';
+import api from './axiosConfig';
 
 export const AuthContext = React.createContext();
 
