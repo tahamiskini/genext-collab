@@ -1,5 +1,7 @@
 const Card = require("../models/card");
 const { body, validationResult } = require("express-validator");
+const isTooClose = require("../utils/isTooClose");
+const recalcItemsPos = require("../utils/recalcItemsPos");
 
 // Handle current card GET
 exports.card_get = async (req, res) => {
@@ -70,13 +72,21 @@ exports.update_card_put = [
           new: true,
         }
       );
+
+      // Sets new positions if the new pos of the card is too close to neighbouring cards
+      if (isTooClose(newPos)) {
+        const listId = req.body.listId;
+        const cards = await recalcItemsPos({ listId }, Card);
+
+        return res.send(cards);
+      }
+
       res.send(updatedCard);
     } catch (error) {
       res.send(error);
     }
   },
 ];
-
 // Handle card delete on DELETE
 exports.card_delete = async (req, res) => {
   try {

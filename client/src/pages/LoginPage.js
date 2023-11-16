@@ -1,7 +1,50 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import { useContext, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import MiniLoader from "../components/MiniLoader";
+import { AuthContext } from "../config/Auth";
+import api from "../config/axiosConfig";
+import { createUserHomeUrl } from "../utils/string";
 
 const LoginPage = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { user, setUser } = useContext(AuthContext);
+
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    const { email, password } = e.target.elements;
+
+    try {
+      setError(null);
+      setLoading(true);
+
+      const { data } = await api.post("auth/login", {
+        email: email.value,
+        password: password.value,
+      });
+
+      if (data.error) {
+        setLoading(false);
+        setError(data.error);
+        return;
+      }
+
+      if (data.id) {
+        setUser(data);
+        navigate(createUserHomeUrl(data.username));
+      }
+    } catch (error) {
+      setError(error);
+    }
+  };
+
+  if (user) {
+    return <Navigate to={createUserHomeUrl(user.username)} />;
+  }
+
   return (
     <div>
       <div className="bg-main w-full h-full -z-10 fixed"></div>
@@ -10,7 +53,10 @@ const LoginPage = () => {
           Genext Collab
         </Link>
         <div className="md:bg-white p-12 md:shadow-lg rounded-md">
-          <form className="flex flex-col justify-center">
+          <form
+            onSubmit={(e) => handleLogin(e)}
+            className="flex flex-col justify-center"
+          >
             <h2 className="text-lg text-center font-medium text-fav mb-10 w-96">
               Log in to your account
             </h2>
@@ -35,7 +81,7 @@ const LoginPage = () => {
               className="border rounded-md shadow-sm p-2 bg-white mb-4"
             />
             <div className="mb-4 text-red-600 rounded-md w-0 min-w-full">
-              <span>{null}</span>
+              <span>{error ? error : null}</span>
             </div>
 
             <button
@@ -43,12 +89,15 @@ const LoginPage = () => {
               className="bg-cyan-400 border text-white  font-medium text-md py-2 shadow mb-5
               hover:bg-radial-gradient rounded-md transition-colors duration-150"
             >
-              {"Log In"}
+              {loading ? <MiniLoader color={true} /> : "Log In"}
             </button>
           </form>
           <div className="text-center mt-4">
             <span className=" text-gray-600">Don&apos;t have an account? </span>
-            <Link to="/signup" className="font-medium text-fav ">
+            <Link
+              to="/signup"
+              className="font-medium text-fav "
+            >
               Sign Up
             </Link>
           </div>
